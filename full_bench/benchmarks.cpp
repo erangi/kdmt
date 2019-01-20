@@ -1,5 +1,6 @@
 //
-// Created by eran on 22/07/2018.
+// Copyright(c) 2019 Eran Gilad, https://github.com/erangi/kdmt
+// Distributed under the MIT License (http://opensource.org/licenses/MIT)
 //
 
 #include <random>

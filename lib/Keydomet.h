@@ -1,5 +1,6 @@
 //
-// Created by erangi on 7/4/17.
+// Copyright(c) 2019 Eran Gilad, https://github.com/erangi/kdmt
+// Distributed under the MIT License (http://opensource.org/licenses/MIT)
 //
 
 #ifndef KEYDOMET_KEYDOMET_H

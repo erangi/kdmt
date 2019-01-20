@@ -1,5 +1,6 @@
 //
-// Created by erangi on 7/3/17.
+// Copyright(c) 2019 Eran Gilad, https://github.com/erangi/kdmt
+// Distributed under the MIT License (http://opensource.org/licenses/MIT)
 //
 
 #ifndef HASHEDKEY_TIMER_H

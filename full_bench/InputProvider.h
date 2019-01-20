@@ -1,3 +1,7 @@
+//
+// Copyright(c) 2019 Eran Gilad, https://github.com/erangi/kdmt
+// Distributed under the MIT License (http://opensource.org/licenses/MIT)
+//
 
 #ifndef KEYDOMET_INPUTPROVIDER_H
 #define KEYDOMET_INPUTPROVIDER_H
