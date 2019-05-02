@@ -14,441 +14,446 @@
 #include <algorithm>
 #include <random>
 #include <sstream>
-#include <experimental/string_view>
+
+#if (__cplusplus < 201703L) && !(defined(__clang__) && __clang_major__ > 7)
+    #include <experimental/string_view>
+    using std::experimental::string_view;
+#else
+    #include <string_view>
+#endif
 
 using namespace kdmt;
 using namespace std;
-using experimental::string_view;
 
-using KDS2 = KeydometStorage<KeydometSize::SIZE_16BIT>;
-using KDS4 = KeydometStorage<KeydometSize::SIZE_32BIT>;
-using KDS8 = KeydometStorage<KeydometSize::SIZE_64BIT>;
-using KDS16 = KeydometStorage<KeydometSize::SIZE_128BIT>;
+using prefix2B = prefix_storage<prefix_size::SIZE_16BIT>;
+using prefix4B = prefix_storage<prefix_size::SIZE_32BIT>;
+using prefix8B = prefix_storage<prefix_size::SIZE_64BIT>;
+using prefix16B = prefix_storage<prefix_size::SIZE_128BIT>;
 
-TEST_CASE("Verify sizes", "[Keydomet]")
+TEST_CASE("Verify sizes", "[keydomet]")
 {
-    REQUIRE(sizeof(KDS2::type) == 2);
-    REQUIRE(sizeof(KDS4::type) == 4);
-    REQUIRE(sizeof(KDS8::type) == 8);
-    REQUIRE(sizeof(KDS16::type) == 16);
+    REQUIRE(sizeof(prefix2B::type) == 2);
+    REQUIRE(sizeof(prefix4B::type) == 4);
+    REQUIRE(sizeof(prefix8B::type) == 8);
+    REQUIRE(sizeof(prefix16B::type) == 16);
 }
 
-TEST_CASE("strToPrefix, 2B, const char*", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 2B, const char*", "[str_to_prefix]")
 {
     const char* str = "01";
-    auto prefix = strToPrefix<KDS2::type>(str);
+    auto prefix = str_to_prefix<prefix2B::type>(str);
     REQUIRE((char)(prefix & 0xFF) == '1');
     REQUIRE((char)(prefix >> (8 * 1)) == '0');
 }
 
-TEST_CASE("strToPrefix, 4B, const char*", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 4B, const char*", "[str_to_prefix]")
 {
     const char* str = "0001";
-    auto prefix = strToPrefix<KDS4::type>(str);
+    auto prefix = str_to_prefix<prefix4B::type>(str);
     REQUIRE((char)(prefix & 0xFF) == '1');
     REQUIRE((char)(prefix >> (8 * 3)) == '0');
 }
 
-TEST_CASE("strToPrefix, 8B, const char*", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 8B, const char*", "[str_to_prefix]")
 {
     const char* str = "00000001";
-    auto prefix = strToPrefix<KDS8::type>(str);
+    auto prefix = str_to_prefix<prefix8B::type>(str);
     REQUIRE((char)(prefix & 0xFF) == '1');
     REQUIRE((char)(prefix >> (8 * 7)) == '0');
 }
 
-TEST_CASE("strToPrefix, 16B, const char*", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 16B, const char*", "[str_to_prefix]")
 {
     const char* str = "0000000000000001";
-    auto prefix = strToPrefix<KDS16::type>(str);
+    auto prefix = str_to_prefix<prefix16B::type>(str);
     REQUIRE((char)(prefix.lsbs & 0xFF) == '1');
     REQUIRE((char)(prefix.msbs >> (8 * 7)) == '0');
 }
 
-TEST_CASE("strToPrefix, 2B, std::string", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 2B, std::string", "[str_to_prefix]")
 {
     string str = "01";
-    auto prefix = strToPrefix<KDS2::type>(str);
+    auto prefix = str_to_prefix<prefix2B::type>(str);
     REQUIRE((char)(prefix & 0xFF) == '1');
     REQUIRE((char)(prefix >> (8 * 1)) == '0');
 }
 
-TEST_CASE("strToPrefix, 4B, std::string", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 4B, std::string", "[str_to_prefix]")
 {
     string str = "0001";
-    auto prefix = strToPrefix<KDS4::type>(str);
+    auto prefix = str_to_prefix<prefix4B::type>(str);
     REQUIRE((char)(prefix & 0xFF) == '1');
     REQUIRE((char)(prefix >> (8 * 3)) == '0');
 }
 
-TEST_CASE("strToPrefix, 8B, std::string", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 8B, std::string", "[str_to_prefix]")
 {
     string str = "00000001";
-    auto prefix = strToPrefix<KDS8::type>(str);
+    auto prefix = str_to_prefix<prefix8B::type>(str);
     REQUIRE((char)(prefix & 0xFF) == '1');
     REQUIRE((char)(prefix >> (8 * 7)) == '0');
 }
 
-TEST_CASE("strToPrefix, 16B, std::string", "[strToPrefix]")
+TEST_CASE("str_to_prefix, 16B, std::string", "[str_to_prefix]")
 {
     string str = "0000000000000001";
-    auto prefix = strToPrefix<KDS16::type>(str);
+    auto prefix = str_to_prefix<prefix16B::type>(str);
     REQUIRE((char)(prefix.lsbs & 0xFF) == '1');
     REQUIRE((char)(prefix.msbs >> (8 * 7)) == '0');
 }
 
-TEST_CASE("flipBytes, 2B", "[flipBytes]")
+TEST_CASE("flip_bytes, 2B", "[flip_bytes]")
 {
-    KDS2::type prefix = 0x0011;
-    flipBytes(prefix);
+    prefix2B::type prefix = 0x0011;
+    flip_bytes(prefix);
     REQUIRE(prefix == 0x1100);
 }
 
-TEST_CASE("flipBytes, 4B", "[flipBytes]")
+TEST_CASE("flip_bytes, 4B", "[flip_bytes]")
 {
-    KDS4::type prefix = 0x00112233;
-    flipBytes(prefix);
+    prefix4B::type prefix = 0x00112233;
+    flip_bytes(prefix);
     REQUIRE(prefix == 0x33221100);
 }
 
-TEST_CASE("flipBytes, 8B", "[flipBytes]")
+TEST_CASE("flip_bytes, 8B", "[flip_bytes]")
 {
-    KDS8::type prefix = 0x0011223344556677;
-    flipBytes(prefix);
+    prefix8B::type prefix = 0x0011223344556677;
+    flip_bytes(prefix);
     REQUIRE(prefix == 0x7766554433221100);
 }
 
-TEST_CASE("flipBytes, 16B", "[flipBytes]")
+TEST_CASE("flip_bytes, 16B", "[flip_bytes]")
 {
-    KDS16::type prefix;
+    prefix16B::type prefix;
     prefix.msbs = 0x0011223344556677;
     prefix.lsbs = 0x8899AABBCCDDEEFF;
-    flipBytes(prefix);
+    flip_bytes(prefix);
     REQUIRE(prefix.msbs == 0x7766554433221100);
     REQUIRE(prefix.lsbs == 0xFFEEDDCCBBAA9988);
 }
 
-TEST_CASE("Prefix, 4B, operator lt, long vs. long different keys", "[Prefix]")
+TEST_CASE("prefix_rep, 4B, operator lt, long vs. long different keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaa"}, kdb{"bbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaa"}, kdb{"bbbbb"};
     REQUIRE(kda < kdb);
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 4B, operator lt, long vs. long related keys", "[Prefix]")
+TEST_CASE("prefix_rep, 4B, operator lt, long vs. long related keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaa"}, kdb{"aaaab"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaa"}, kdb{"aaaab"};
     REQUIRE(!(kda < kdb));
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 4B, operator lt, long vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 4B, operator lt, long vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaa"}, kdb{"bbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaa"}, kdb{"bbb"};
     REQUIRE(kda < kdb);
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 4B, operator lt, short vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 4B, operator lt, short vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaa"}, kdb{"bbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaa"}, kdb{"bbb"};
     REQUIRE(kda < kdb);
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 16B, operator lt, long vs. long different keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator lt, long vs. long different keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbbbbbbbbbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbbbbbbbbbbbbb"};
     REQUIRE(kda < kdb);
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 16B, operator lt, long vs. long related keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator lt, long vs. long related keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"aaaaaaaaaaaaaaaab"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"aaaaaaaaaaaaaaaab"};
     REQUIRE(!(kda < kdb));
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 16B, operator lt, long vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator lt, long vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbb"};
     REQUIRE(kda < kdb);
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 16B, operator lt, short vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator lt, short vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaa"}, kdb{"bbbbbbbbbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaa"}, kdb{"bbbbbbbbbbbbb"};
     REQUIRE(kda < kdb);
     REQUIRE(!(kdb < kda));
     REQUIRE(!(kda < kda));
 }
 
-TEST_CASE("Prefix, 16B, operator eq, long vs. long different keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator eq, long vs. long different keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbbbbbbbbbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbbbbbbbbbbbbb"};
     REQUIRE(!(kda == kdb));
     REQUIRE(kda == kda);
 }
 
-TEST_CASE("Prefix, 16B, operator eq, long vs. long related keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator eq, long vs. long related keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"aaaaaaaaaaaaaaaab"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"aaaaaaaaaaaaaaaab"};
     REQUIRE(kda == kdb);
     REQUIRE(kda == kda);
 }
 
-TEST_CASE("Prefix, 16B, operator eq, long vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator eq, long vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbb"};
     REQUIRE(!(kda == kdb));
     REQUIRE(kda == kda);
 }
 
-TEST_CASE("Prefix, 16B, operator eq, short vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator eq, short vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaa"}, kdb{"bbbbbbbbbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaa"}, kdb{"bbbbbbbbbbbbb"};
     REQUIRE(!(kda == kdb));
     REQUIRE(kda == kda);
 }
 
-TEST_CASE("Prefix, 16B, operator ne, long vs. long different keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator ne, long vs. long different keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbbbbbbbbbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbbbbbbbbbbbbb"};
     REQUIRE(kda != kdb);
     REQUIRE(!(kda != kda));
 }
 
-TEST_CASE("Prefix, 16B, operator ne, long vs. long related keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator ne, long vs. long related keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"aaaaaaaaaaaaaaaab"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"aaaaaaaaaaaaaaaab"};
     REQUIRE(!(kda != kdb));
     REQUIRE(!(kda != kda));
 }
 
-TEST_CASE("Prefix, 16B, operator ne, long vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator ne, long vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaaaaaaaaaaaaaaaa"}, kdb{"bbbbbb"};
     REQUIRE(kda != kdb);
     REQUIRE(!(kda != kda));
 }
 
-TEST_CASE("Prefix, 16B, operator ne, short vs. short keys", "[Prefix]")
+TEST_CASE("prefix_rep, 16B, operator ne, short vs. short keys", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> kda{"aaa"}, kdb{"bbbbbbbbbbbbb"};
+    prefix_rep<prefix_size::SIZE_32BIT> kda{"aaa"}, kdb{"bbbbbbbbbbbbb"};
     REQUIRE(kda != kdb);
     REQUIRE(!(kda != kda));
 }
 
-TEST_CASE("stringShorterThanKeydomet, 2B", "[Prefix]")
+TEST_CASE("string_shorter_than_prefix, 2B", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_16BIT> shorter{string(1, 's')}, longer{string(3, 'l')};
-    CAPTURE((void*)(uintptr_t)shorter.getVal());
-    REQUIRE(shorter.stringShorterThanKeydomet());
-    CAPTURE((void*)(uintptr_t)longer.getVal());
-    REQUIRE(!longer.stringShorterThanKeydomet());
+    prefix_rep<prefix_size::SIZE_16BIT> shorter{string(1, 's')}, longer{string(3, 'l')};
+    CAPTURE((void*)(uintptr_t)shorter.get_val());
+    REQUIRE(shorter.string_shorter_than_prefix());
+    CAPTURE((void*)(uintptr_t)longer.get_val());
+    REQUIRE(!longer.string_shorter_than_prefix());
 }
 
-TEST_CASE("stringShorterThanKeydomet, 4B", "[Prefix]")
+TEST_CASE("string_shorter_than_prefix, 4B", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_32BIT> shorter{string(3, 's')}, longer{string(4, 'l')};
-    REQUIRE(shorter.stringShorterThanKeydomet());
-    REQUIRE(!longer.stringShorterThanKeydomet());
+    prefix_rep<prefix_size::SIZE_32BIT> shorter{string(3, 's')}, longer{string(4, 'l')};
+    REQUIRE(shorter.string_shorter_than_prefix());
+    REQUIRE(!longer.string_shorter_than_prefix());
 }
 
-TEST_CASE("stringShorterThanKeydomet, 8B", "[Prefix]")
+TEST_CASE("string_shorter_than_prefix, 8B", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_64BIT> shorter{string(7, 's')}, longer{string(8, 'l')};
-    REQUIRE(shorter.stringShorterThanKeydomet());
-    REQUIRE(!longer.stringShorterThanKeydomet());
+    prefix_rep<prefix_size::SIZE_64BIT> shorter{string(7, 's')}, longer{string(8, 'l')};
+    REQUIRE(shorter.string_shorter_than_prefix());
+    REQUIRE(!longer.string_shorter_than_prefix());
 }
 
-TEST_CASE("stringShorterThanKeydomet, 16B", "[Prefix]")
+TEST_CASE("string_shorter_than_prefix, 16B", "[prefix_rep]")
 {
-    Prefix<KeydometSize::SIZE_128BIT> shorter{string(15, 's')}, longer{string(16, 'l')};
-    REQUIRE(shorter.stringShorterThanKeydomet());
-    REQUIRE(!longer.stringShorterThanKeydomet());
+    prefix_rep<prefix_size::SIZE_128BIT> shorter{string(15, 's')}, longer{string(16, 'l')};
+    REQUIRE(shorter.string_shorter_than_prefix());
+    REQUIRE(!longer.string_shorter_than_prefix());
 }
 
-TEST_CASE("compare equal long keys, 4B", "[Keydomet]")
+TEST_CASE("compare equal long keys, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"kkkkkkkk"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"kkkkkkkk"};
     int res = k1.compare(k2);
     REQUIRE(res == 0);
 }
 
-TEST_CASE("compare equal short keys, 4B", "[Keydomet]")
+TEST_CASE("compare equal short keys, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"k"}, k2{"k"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"k"}, k2{"k"};
     int res = k1.compare(k2);
     REQUIRE(res == 0);
 }
 
-TEST_CASE("compare k1 < k2, diff at prefix, 4B", "[Keydomet]")
+TEST_CASE("compare k1 < k2, diff at prefix, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"llllllll"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"llllllll"};
     int res = k1.compare(k2);
     REQUIRE(res < 0);
 }
 
-TEST_CASE("compare k1 > k2, diff at prefix, 4B", "[Keydomet]")
+TEST_CASE("compare k1 > k2, diff at prefix, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"jjjjjjjj"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"jjjjjjjj"};
     int res = k1.compare(k2);
     REQUIRE(res > 0);
 }
 
-TEST_CASE("compare k1 < k2, diff at suffix, 4B", "[Keydomet]")
+TEST_CASE("compare k1 < k2, diff at suffix, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"kkkkllll"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"kkkkllll"};
     int res = k1.compare(k2);
     REQUIRE(res < 0);
 }
 
-TEST_CASE("compare k1 > k2, diff at suffix, 4B", "[Keydomet]")
+TEST_CASE("compare k1 > k2, diff at suffix, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"kkkkjjjj"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkkkkk"}, k2{"kkkkjjjj"};
     int res = k1.compare(k2);
     REQUIRE(res > 0);
 }
 
-TEST_CASE("compare k1 < k2, short keys, 4B", "[Keydomet]")
+TEST_CASE("compare k1 < k2, short keys, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kk"}, k2{"ll"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kk"}, k2{"ll"};
     int res = k1.compare(k2);
     REQUIRE(res < 0);
 }
 
-TEST_CASE("compare k1 > k2, short keys, 4B", "[Keydomet]")
+TEST_CASE("compare k1 > k2, short keys, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kk"}, k2{"jj"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kk"}, k2{"jj"};
     int res = k1.compare(k2);
     REQUIRE(res > 0);
 }
 
-TEST_CASE("operator< k1 < k2, 4B", "[Keydomet]")
+TEST_CASE("operator< k1 < k2, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkk"}, k2{"lllll"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkk"}, k2{"lllll"};
     bool res = k1 < k2;
     REQUIRE(res == true);
 }
 
-TEST_CASE("operator< k1 > k2, 4B", "[Keydomet]")
+TEST_CASE("operator< k1 > k2, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkk"}, k2{"jjjjj"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkk"}, k2{"jjjjj"};
     bool res = k1 < k2;
     REQUIRE(res == false);
 }
 
-TEST_CASE("operator< k1 == k2, 4B", "[Keydomet]")
+TEST_CASE("operator< k1 == k2, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkk"}, k2{"kkkkk"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkk"}, k2{"kkkkk"};
     bool res = k1 < k2;
     REQUIRE(res == false);
 }
 
-TEST_CASE("operator== k1 < k2, 4B", "[Keydomet]")
+TEST_CASE("operator== k1 < k2, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkk"}, k2{"lllll"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkk"}, k2{"lllll"};
     bool res = k1 == k2;
     REQUIRE(res == false);
 }
 
-TEST_CASE("operator== k1 > k2, 4B", "[Keydomet]")
+TEST_CASE("operator== k1 > k2, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkk"}, k2{"jjjjj"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkk"}, k2{"jjjjj"};
     bool res = k1 == k2;
     REQUIRE(res == false);
 }
 
-TEST_CASE("operator== k1 == k2, 4B", "[Keydomet]")
+TEST_CASE("operator== k1 == k2, 4B", "[keydomet]")
 {
-    Keydomet<const char*, KeydometSize::SIZE_32BIT> k1{"kkkkk"}, k2{"kkkkk"};
+    keydomet<const char*, prefix_size::SIZE_32BIT> k1{"kkkkk"}, k2{"kkkkk"};
     bool res = k1 == k2;
     REQUIRE(res == true);
 }
 
-TEST_CASE("associative containers take a const str&", "[makeFindKey]")
+TEST_CASE("associative containers take a const str&", "[make_find_key]")
 {
-    using KdmtStr = Keydomet<string, KeydometSize::SIZE_32BIT>;
-    set<KdmtStr, less<>> s;
+    using kdmt_str = keydomet<string, prefix_size::SIZE_32BIT>;
+    set<kdmt_str, less<>> s;
     string lookupStr{"dummy"};
-    using FindKeyType = decltype(makeFindKey(s, lookupStr))::StrImp;
-    constexpr bool isConstRef = is_same<FindKeyType, const string&>::value;
-    CAPTURE(typeid(FindKeyType).name());
-    REQUIRE(isConstRef == true);
+    using find_key_type = decltype(make_find_key(s, lookupStr))::str_imp;
+    constexpr bool is_const_ref = is_same<find_key_type, const string&>::value;
+    CAPTURE(typeid(find_key_type).name());
+    REQUIRE(is_const_ref == true);
 }
 
-TEST_CASE("associative container key requires no allocation", "[makeFindKey]")
+TEST_CASE("associative container key requires no allocation", "[make_find_key]")
 {
-    using KdmtStr = Keydomet<string, KeydometSize::SIZE_32BIT>;
-    set<KdmtStr, less<>> s;
+    using kdmt_str = keydomet<string, prefix_size::SIZE_32BIT>;
+    set<kdmt_str, less<>> s;
     string org{"dummy"};
-    auto fk = makeFindKey(s, org);
-    const string& ref = fk.getStr();
+    auto fk = make_find_key(s, org);
+    const string& ref = fk.get_str();
     REQUIRE(&ref == &org);
 }
 
 TEST_CASE("sorting multiple keys", "[containers]")
 {
-    vector<string> orgVals(10 + 100 + 1000);
-    // generate single character strings (shorter than KeydometSize): "0" - "9"
-    generate_n(orgVals.begin(),       10,  [n = 0] () mutable { return to_string(n++); });
-    // generate two character strings (exactly KeydometSize): "00" - "99"
-    generate_n(orgVals.begin() + 10,  10,  [n = 0] () mutable { return string{"0"} + to_string(n++); });
-    generate_n(orgVals.begin() + 20,  90,  [n = 10] () mutable { return to_string(n++); });
-    // generate three character strings (longer than KeydometSize): "000" - "999"
-    generate_n(orgVals.begin() + 110, 10,  [n = 0] () mutable { return string{"00"} + to_string(n++); });
-    generate_n(orgVals.begin() + 120, 90,  [n = 0] () mutable { return string{"0"} + to_string(n++); });
-    generate_n(orgVals.begin() + 210, 900, [n = 100] () mutable { return to_string(n++); });
+    vector<string> org_vals(10 + 100 + 1000);
+    // generate single character strings (shorter than prefix_size): "0" - "9"
+    generate_n(org_vals.begin(),       10,  [n = 0] () mutable { return to_string(n++); });
+    // generate two character strings (exactly prefix_size): "00" - "99"
+    generate_n(org_vals.begin() + 10,  10,  [n = 0] () mutable { return string{"0"} + to_string(n++); });
+    generate_n(org_vals.begin() + 20,  90,  [n = 10] () mutable { return to_string(n++); });
+    // generate three character strings (longer than prefix_size): "000" - "999"
+    generate_n(org_vals.begin() + 110, 10,  [n = 0] () mutable { return string{"00"} + to_string(n++); });
+    generate_n(org_vals.begin() + 120, 90,  [n = 0] () mutable { return string{"0"} + to_string(n++); });
+    generate_n(org_vals.begin() + 210, 900, [n = 100] () mutable { return to_string(n++); });
     // this is the reference sort
-    sort(orgVals.begin(), orgVals.end());
+    sort(org_vals.begin(), org_vals.end());
 
-    using KdmtView = Keydomet<string_view, KeydometSize::SIZE_16BIT>;
-    vector<KdmtView> kdmVals;
-    kdmVals.reserve(orgVals.size());
-    transform(orgVals.begin(), orgVals.end(), back_inserter(kdmVals), [](const string& v) {
-        return KdmtView{v.c_str()};
+    using kdmt_view = keydomet<string_view, prefix_size::SIZE_16BIT>;
+    vector<kdmt_view> kdm_vals;
+    kdm_vals.reserve(org_vals.size());
+    transform(org_vals.begin(), org_vals.end(), back_inserter(kdm_vals), [](const string& v) {
+        return kdmt_view{v.c_str()};
     });
 
     std::mt19937 g(std::random_device{}());
 
     for (int i = 0; i < 100; ++i)
     {
-        std::shuffle(kdmVals.begin(), kdmVals.end(), g);
-        sort(kdmVals.begin(), kdmVals.end());
-        bool eq = equal(orgVals.begin(), orgVals.end(), kdmVals.begin(), kdmVals.end(),
-                [](const string& org, const KdmtView& kdm) {
-            return kdm.getStr() == org;
+        std::shuffle(kdm_vals.begin(), kdm_vals.end(), g);
+        sort(kdm_vals.begin(), kdm_vals.end());
+        bool eq = equal(org_vals.begin(), org_vals.end(), kdm_vals.begin(), kdm_vals.end(),
+                [](const string& org, const kdmt_view& kdm) {
+            return kdm.get_str() == org;
         });
-        CAPTURE(orgVals);
-        CAPTURE(kdmVals);
+        CAPTURE(org_vals);
+        CAPTURE(kdm_vals);
         REQUIRE(eq);
     }
 }
 
 TEST_CASE("populate keydomet set", "[containers]")
 {
-    using KdmtStr = Keydomet<std::string, KeydometSize::SIZE_16BIT>;
-    set<KdmtStr, less<>> kdmtSet;
+    using kdmt_str = keydomet<std::string, prefix_size::SIZE_16BIT>;
+    set<kdmt_str, less<>> kdmt_set;
     vector<string> input({"Ac", "Jg", "OE", "S_", "Uv", "ak", "bT", "in", "s^", "xy"});
 
     for (size_t i = 0; i < input.size(); ++i)
     {
-        kdmtSet.insert(KdmtStr{input[i]});
-        REQUIRE(kdmtSet.size() == i + 1);
+        kdmt_set.insert(kdmt_str{input[i]});
+        REQUIRE(kdmt_set.size() == i + 1);
     }
 }
 
-static string getRandKey(size_t len)
+static string get_rand_key(size_t len)
 {
     static mt19937 gen{random_device{}()};
     uniform_int_distribution<short> dis('A', 'z');
@@ -460,7 +465,7 @@ static string getRandKey(size_t len)
 }
 
 template<typename T>
-static string dumpContainer(const T& container)
+static string dump_container(const T& container)
 {
     stringstream ss;
     for (auto iter = container.begin(); iter != container.end(); ++iter)
@@ -472,46 +477,46 @@ static string dumpContainer(const T& container)
 
 TEST_CASE("searching sets with and without keydomet", "[containers]")
 {
-    using KdmtStr = Keydomet<std::string, KeydometSize::SIZE_16BIT>;
-    set<KdmtStr, less<>> kdmtSet;
-    set<string> strSet;
+    using kdmt_str = keydomet<std::string, prefix_size::SIZE_16BIT>;
+    set<kdmt_str, less<>> kdmt_set;
+    set<string> str_set;
 
-    constexpr size_t InputsNum = 10, LookupsNum = 10, KeyLen = 2;
-    for (size_t i = 0; i < InputsNum; ++i)
+    constexpr size_t inputs_num = 10, lookups_num = 10, key_len = 2;
+    for (size_t i = 0; i < inputs_num; ++i)
     {
-        string key = getRandKey(KeyLen);
-        kdmtSet.insert(KdmtStr{key});
-        strSet.insert(key);
+        string key = get_rand_key(key_len);
+        kdmt_set.insert(kdmt_str{key});
+        str_set.insert(key);
     }
-    CHECK(kdmtSet.size() == strSet.size());
-    for (size_t i = 0; i < LookupsNum; ++i)
+    CHECK(kdmt_set.size() == str_set.size());
+    for (size_t i = 0; i < lookups_num; ++i)
     {
-        string key = getRandKey(KeyLen);
-        bool foundKdmt = kdmtSet.find(KdmtStr{key}) == kdmtSet.end();
-        bool foundStr = strSet.find(key) == strSet.end();
-        if (foundKdmt != foundStr)
+        string key = get_rand_key(key_len);
+        bool found_kdmt = kdmt_set.find(kdmt_str{key}) == kdmt_set.end();
+        bool found_str = str_set.find(key) == str_set.end();
+        if (found_kdmt != found_str)
         {
-            string kdmtDump = dumpContainer(kdmtSet);
-            string strDump = dumpContainer(strSet);
-            CAPTURE(kdmtDump);
-            CAPTURE(strDump);
+            string kdmt_dump = dump_container(kdmt_set);
+            string str_dump = dump_container(str_set);
+            CAPTURE(kdmt_dump);
+            CAPTURE(str_dump);
             FAIL();
         }
-        REQUIRE(foundKdmt == foundStr);
+        REQUIRE(found_kdmt == found_str);
     }
 }
 
-class MyString
+class my_string
 {
 public:
-    MyString(const string& s) : str(s) {}
-    bool operator<(const MyString& other) const {
+    my_string(const string& s) : str(s) {}
+    bool operator<(const my_string& other) const {
         return str < other.str;
     }
-    bool operator==(const MyString& other) const {
+    bool operator==(const my_string& other) const {
         return str == other.str;
     }
-    friend const char* getRawStr(const MyString& s)
+    friend const char* get_raw_str(const my_string& s)
     {
         return s.str.c_str();
     }
@@ -522,16 +527,16 @@ private:
 
 TEST_CASE("using keydomet with non-standard strings", "[custom strings]")
 {
-    using KdmtMyStr = Keydomet<MyString, KeydometSize::SIZE_16BIT>;
-    set<KdmtMyStr, less<>> kdmtSet;
-    MyString str1("str1"), str2("str2"), str3("str3");
-    kdmtSet.insert(str3);
-    kdmtSet.insert(str1);
-    kdmtSet.insert(str2);
-    auto iter = kdmtSet.begin();
-    REQUIRE(iter->getStr() == str1);
+    using kdmt_my_str = keydomet<my_string, prefix_size::SIZE_16BIT>;
+    set<kdmt_my_str, less<>> kdmt_set;
+    my_string str1("str1"), str2("str2"), str3("str3");
+    kdmt_set.insert(str3);
+    kdmt_set.insert(str1);
+    kdmt_set.insert(str2);
+    auto iter = kdmt_set.begin();
+    REQUIRE(iter->get_str() == str1);
     ++iter;
-    REQUIRE(iter->getStr() == str2);
+    REQUIRE(iter->get_str() == str2);
     ++iter;
-    REQUIRE(iter->getStr() == str3);
+    REQUIRE(iter->get_str() == str3);
 }

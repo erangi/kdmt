@@ -22,7 +22,7 @@ Keydomet is a generic class and is not tied to a particular string type. As long
 In addition to the basic keydomet comparison, a few more optimization knobs are available:
 * Keydomet size - the keydomet can be a 2-8 byte long integer. Larger prefixes yield less collisions and less full string comparison, but increase the memory footprint.
 * Keydomet deduplication - Since there is a mapping from the string prefix to the keydomet integer, there is no need to compare the strings prefixes upon collision. Instead, given an N byte keydomet, the string comparison can start at byte N+1. Further, the prefix can sometimes be omitted from the characters array. Namely, if the original string is "1234", if the keydomet encodes the "12" part, the characters array need only store the "34" suffix. However, such full deduplication does not allow returning a pointer to the complete string, hence is not enabled by default.
-* A Keydomet\<string\> is an object that owns the underlying string. When a lookup is given a string argument (usually as a const reference, string_view or so), it must be converted to a Keydomet\<string\>, which involves expensive allocation and copying. To avoid the overhead, a Keydomet can be compared to any other Keydomet type, even if the underlying string types are different, as long as the strings themselves can be compared. As a result, a Keydomet\<string\> can be compared with a Keydomet\<string_view\>. On containers with transparent comperators, this eliminates the need to construct a full-fledged Keydomet\<string\> for the lookup argument, and instead use a Keydomet\<string_view\> when searching, e.g., a set\<keydomet\<string\>\>.
+* A keydomet\<string\> is an object that owns the underlying string. When a lookup is given a string argument (usually as a const reference, string_view or so), it must be converted to a Keydomet\<string\>, which involves expensive allocation and copying. To avoid the overhead, a Keydomet can be compared to any other Keydomet type, even if the underlying string types are different, as long as the strings themselves can be compared. As a result, a Keydomet\<string\> can be compared with a Keydomet\<string_view\>. On containers with transparent comperators, this eliminates the need to construct a full-fledged Keydomet\<string\> for the lookup argument, and instead use a Keydomet\<string_view\> when searching, e.g., a set\<keydomet\<string\>\>.
 
 ## Installation ##
 
@@ -41,11 +41,11 @@ The build will produce 3 executables:
 
 The Keydomet wrapper takes 2 type arguments:
 1. Underlying string implementation, e.g., std::string
-2. The amount of string to cache in the Keydomet, using the KeydometSize enum. 32 bits would make a good starting point, but other sizes may turn out to be better in your case.
+2. The amount of string to cache in the Keydomet, using the prefix_size enum. 32 bits would make a good starting point, but other sizes may turn out to be better in your case.
 
 On the data structure you'd like to optimize, simply replace the string type used as the key with the Keydomet wrapper: instead of map\<string, string\>, use map\<Keydomet\<string, KeyDometSize::SIZE_32BIT\>, string\, std::less\<\>\>. The less\<\> part is required for a transparent comparator to be used, allowing comparison of different types (as long as they support it).
 
-Lastly, use the makeFindKey function to generate a Keydomet lookup key from the original string argument. The function detects whether the container uses a transparent comperator, and if so avoids constructing a new string (as part of the Keydomet), using a Keydomet of a view instead.
+Lastly, use the make_find_key function to generate a Keydomet lookup key from the original string argument. The function detects whether the container uses a transparent comperator, and if so avoids constructing a new string (as part of the Keydomet), using a Keydomet of a view instead.
 
 ## Results ##
 

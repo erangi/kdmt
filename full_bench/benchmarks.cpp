@@ -8,7 +8,12 @@
 #include <cstdint>
 #include <sstream>
 #include <atomic>
-#include <experimental/string_view>
+#if (__cplusplus < 201703L) && !(defined(__clang__) && __clang_major__ > 7)
+    #include <experimental/string_view>
+    using std::experimental::string_view;
+#else
+    #include <string_view>
+#endif
 
 #include "Keydomet.h"
 #include "InputProvider.h"
@@ -17,7 +22,6 @@
 
 using namespace std;
 using namespace kdmt;
-using experimental::string_view;
 
 template<template<class, class...> class Container, class StrType, class... Args>
 bool lookup(Container<StrType, Args...>& s, const string& key)
@@ -27,71 +31,71 @@ bool lookup(Container<StrType, Args...>& s, const string& key)
 }
 
 // specialized for keydomet-ed containers, which take a keydomet for lookups
-template<template<class, class... KdmtArgs> class Container, class KdmtStrT, KeydometSize KdmtSize, class... Args>
-bool lookup(Container<Keydomet<KdmtStrT, KdmtSize>, Args...>& s, const string& key)
+template<template<class, class... KdmtArgs> class Container, class KdmtStrT, prefix_size KdmtSize, class... Args>
+bool lookup(Container<keydomet<KdmtStrT, KdmtSize>, Args...>& s, const string& key)
 {
-    auto hkey = makeFindKey(s, key);
+    auto hkey = make_find_key(s, key);
     auto iter = s.find(hkey);
     return iter != s.end();
 }
 
-enum Ops { Lookups, Mix };
-enum SSO { Use, Exceed };
+enum ops { Lookups, Mix };
+enum sso { Use, Exceed };
 
-struct ContainerSize { int64_t v; };
-struct OpKeysNum { int64_t v; };
+struct container_size { int64_t v; };
+struct op_keys_num { int64_t v; };
 
-template<KeydometSize KdmtSize, class StrT>
-void KeydometBench(benchmark::State& state, Ops opsMix, ContainerSize containerSize, OpKeysNum opKeysNum,
-        InputProvider<Keydomet<StrT, KdmtSize>>& input)
+template<prefix_size KdmtSize, class StrT>
+void keydomet_bench(benchmark::State& state, ops ops_mix, container_size container_size, op_keys_num op_key_num,
+        input_provider<keydomet<StrT, KdmtSize>>& input)
 {
-    using KdmtStr = Keydomet<StrT, KdmtSize>;
-    const size_t prevUsedPrefix = KdmtStr::usedPrefix();
-    const size_t prevUsedStr = KdmtStr::usedString();
-    set<KdmtStr, less<>> container(input.getContainer(containerSize.v));
-    const vector<string>& opKeys = input.getKeys(opKeysNum.v, KeysUse::BENCH_OPS);
+    using kdmt_str = keydomet<StrT, KdmtSize>;
+    const size_t prev_used_prefix = kdmt_str::used_prefix();
+    const size_t prev_used_str = kdmt_str::used_string();
+    set<kdmt_str, less<>> container(input.get_container(container_size.v));
+    const vector<string>& op_keys = input.get_keys(op_key_num.v, keys_use::BENCH_OPS);
     size_t ops = 0, found = 0;
-    if (opsMix == Ops::Lookups)
+    if (ops_mix == ops::Lookups)
     {
         for (auto _ : state)
         {
-            auto findKey = makeFindKey(container, opKeys[ops++ % opKeys.size()]);
-            static_assert(is_same<decltype(findKey), Keydomet<const StrT&, KdmtSize>>::value, "");
-            found += container.find(findKey) != container.end() ? 1 : 0;
+            auto find_key = make_find_key(container, op_keys[ops++ % op_keys.size()]);
+            static_assert(is_same<decltype(find_key), keydomet<const StrT&, KdmtSize>>::value, "");
+            found += container.find(find_key) != container.end() ? 1 : 0;
         }
     }
     else
     {
         for (auto _ : state)
         {
-            const string& opKey = opKeys[ops++ % opKeys.size()];
+            const string& op_key = op_keys[ops++ % op_keys.size()];
             if (ops & 0x1)
             {
-                auto findKey = makeFindKey(container, opKey);
-                static_assert(is_same<decltype(findKey), Keydomet<const StrT&, KdmtSize>>::value, "");
-                found += container.find(findKey) != container.end() ? 1 : 0;
+                auto find_key = make_find_key(container, op_key);
+                static_assert(is_same<decltype(find_key), keydomet<const StrT&, KdmtSize>>::value, "");
+                found += container.find(find_key) != container.end() ? 1 : 0;
             }
             else
             {
                 if (ops & 0x10)
                 {
-                    auto delKey = makeFindKey(container, opKey);
-                    static_assert(is_same<decltype(delKey), Keydomet<const StrT&, KdmtSize>>::value, "");
-                    auto iter = container.find(delKey);
+                    auto del_key = make_find_key(container, op_key);
+                    static_assert(is_same<decltype(del_key), keydomet<const StrT&, KdmtSize>>::value, "");
+                    auto iter = container.find(del_key);
                     if (iter != container.end())
                         container.erase(iter);
                 }
                 else
                 {
-                    container.insert(KdmtStr{opKey});
+                    container.insert(kdmt_str{op_key});
                 }
             }
         }
     }
     state.counters["1-lookups_found"] = benchmark::Counter{(double)found, benchmark::Counter::kAvgIterations};
-    double kdmtUseRate = double(KdmtStr::usedPrefix() - prevUsedPrefix) /
-            ((KdmtStr::usedPrefix() - prevUsedPrefix) + (KdmtStr::usedString() - prevUsedStr));
-    state.counters["2-keydomet_use_rate"] = kdmtUseRate;
+    double kdmt_use_rate = double(kdmt_str::used_prefix() - prev_used_prefix) /
+            ((kdmt_str::used_prefix() - prev_used_prefix) + (kdmt_str::used_string() - prev_used_str));
+    state.counters["2-keydomet_use_rate"] = kdmt_use_rate;
 }
 
 template<template<typename...> class Container, typename... CArgs>
@@ -104,38 +108,38 @@ string dump(const Container<CArgs...>& container, string delim)
 }
 
 template<typename StrT>
-void StringBench(benchmark::State& state, Ops opsMix, ContainerSize containerSize, OpKeysNum opKeysNum,
-        InputProvider<string>& input)
+void string_bench(benchmark::State& state, ops ops_mix, container_size container_size, op_keys_num op_key_num,
+        input_provider<string>& input)
 {
-    const set<string, less<>>& strContainer = input.getContainer(containerSize.v);
-    set<StrT, less<>> container{strContainer.begin(), strContainer.end()};
-    const vector<string>& opKeys = input.getKeys(opKeysNum.v, KeysUse::BENCH_OPS);
+    const set<string, less<>>& str_container = input.get_container(container_size.v);
+    set<StrT, less<>> container{str_container.begin(), str_container.end()};
+    const vector<string>& op_keys = input.get_keys(op_key_num.v, keys_use::BENCH_OPS);
     size_t ops = 0, found = 0;
-    if (opsMix == Ops::Lookups)
+    if (ops_mix == ops::Lookups)
     {
         for (auto _ : state)
         {
-            found += container.find(opKeys[ops++ % opKeys.size()]) != container.end() ? 1 : 0;
+            found += container.find(op_keys[ops++ % op_keys.size()]) != container.end() ? 1 : 0;
         }
     }
     else
     {
         for (auto _ : state)
         {
-            const string& opKey = opKeys[ops++ % opKeys.size()];
+            const string& op_key = op_keys[ops++ % op_keys.size()];
             if (ops & 0x1)
             {
-                found += container.find(opKey) != container.end() ? 1 : 0;
+                found += container.find(op_key) != container.end() ? 1 : 0;
             }
             else
             {
                 if (ops & 0x10)
                 {
-                    container.erase(opKey);
+                    container.erase(op_key);
                 }
                 else
                 {
-                    container.insert(opKey);
+                    container.insert(op_key);
                 }
             }
         }
@@ -146,205 +150,205 @@ void StringBench(benchmark::State& state, Ops opsMix, ContainerSize containerSiz
 const char* datasetFile = "datasets/2.5M keys.csv";
 
 template<typename StrT>
-void getRandBenchArgs(const benchmark::State& state, SSO sso,
-        ContainerSize& containerSize, OpKeysNum& opKeysNum, std::unique_ptr<InputProvider<StrT>>& provider)
+void get_rand_bench_args(const benchmark::State& state, sso is_sso,
+        container_size& container_size, op_keys_num& op_key_num, std::unique_ptr<input_provider<StrT>>& provider)
 {
-    containerSize.v = state.range(0);
-    opKeysNum.v = state.range(1);
-    uint32_t keyLen = calcKeyLen(max(containerSize.v, opKeysNum.v));
-    size_t extraLen = sso == SSO::Use ? 0 : sizeof(string) - keyLen;
-    provider = getRandInput<StrT>(keyLen, extraLen);
+    container_size.v = state.range(0);
+    op_key_num.v = state.range(1);
+    uint32_t key_len = calc_key_len(max(container_size.v, op_key_num.v));
+    size_t extra_len = is_sso == sso::Use ? 0 : sizeof(string) - key_len;
+    provider = get_rand_input<StrT>(key_len, extra_len);
 }
 
 void BM_WarmupSsoOn(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Use, containerSize, opKeysNum, provider);
-    StringBench<string>(state, Ops::Lookups, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
+    string_bench<string>(state, ops::Lookups, container_size, op_key_num, *provider);
+    cerr << "Types sizes: std::string = " << sizeof(string) << "B, std::string_view = " << sizeof(string_view) << "B" << endl;
 }
 
 void BM_WarmupSsoOff(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Exceed, containerSize, opKeysNum, provider);
-    StringBench<string>(state, Ops::Lookups, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Exceed, container_size, op_key_num, provider);
+    string_bench<string>(state, ops::Lookups, container_size, op_key_num, *provider);
 }
 
 void BM_WarmupDataset(benchmark::State& state)
 {
-    auto provider = getDatasetInput<string>(datasetFile);
-    StringBench<string>(state, Ops::Lookups, ContainerSize{state.range(0)}, OpKeysNum{state.range(1)}, *provider);
+    auto provider = get_dataset_input<string>(datasetFile);
+    string_bench<string>(state, ops::Lookups, container_size{state.range(0)}, op_keys_num{state.range(1)}, *provider);
 }
 
-template<KeydometSize KdmtSize, class StrT>
+template<prefix_size KdmtSize, class StrT>
 void BM_KeydometAllOpsSsoOn(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<Keydomet<StrT, KdmtSize>>> provider;
-    getRandBenchArgs(state, SSO::Use, containerSize, opKeysNum, provider);
-    KeydometBench<KdmtSize, StrT>(state, Ops::Mix, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<keydomet<StrT, KdmtSize>>> provider;
+    get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
+    keydomet_bench<KdmtSize, StrT>(state, ops::Mix, container_size, op_key_num, *provider);
 }
 
-template<KeydometSize KdmtSize, class StrT>
+template<prefix_size KdmtSize, class StrT>
 void BM_KeydometAllOpsSsoOff(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<Keydomet<StrT, KdmtSize>>> provider;
-    getRandBenchArgs(state, SSO::Exceed, containerSize, opKeysNum, provider);
-    KeydometBench<KdmtSize, StrT>(state, Ops::Mix, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<keydomet<StrT, KdmtSize>>> provider;
+    get_rand_bench_args(state, sso::Exceed, container_size, op_key_num, provider);
+    keydomet_bench<KdmtSize, StrT>(state, ops::Mix, container_size, op_key_num, *provider);
 }
 
-template<KeydometSize KdmtSize, class StrT>
+template<prefix_size KdmtSize, class StrT>
 void BM_KeydometAllOpsDataset(benchmark::State& state)
 {
-    auto provider = getDatasetInput<Keydomet<StrT, KdmtSize>>(datasetFile);
-    KeydometBench<KdmtSize, StrT>(state, Ops::Mix, ContainerSize{state.range(0)}, OpKeysNum{state.range(1)}, *provider);
+    auto provider = get_dataset_input<keydomet<StrT, KdmtSize>>(datasetFile);
+    keydomet_bench<KdmtSize, StrT>(state, ops::Mix, container_size{state.range(0)}, op_keys_num{state.range(1)}, *provider);
 }
 
-template<KeydometSize KdmtSize, class StrT>
+template<prefix_size KdmtSize, class StrT>
 void BM_KeydometLookupsDataset(benchmark::State& state)
 {
-    auto provider = getDatasetInput<Keydomet<StrT, KdmtSize>>(datasetFile);
-    KeydometBench<KdmtSize, StrT>(state, Ops::Lookups, ContainerSize{state.range(0)}, OpKeysNum{state.range(1)}, *provider);
+    auto provider = get_dataset_input<keydomet<StrT, KdmtSize>>(datasetFile);
+    keydomet_bench<KdmtSize, StrT>(state, ops::Lookups, container_size{state.range(0)}, op_keys_num{state.range(1)}, *provider);
 }
 
-template<KeydometSize KdmtSize, class StrT>
+template<prefix_size KdmtSize, class StrT>
 void BM_KeydometLookupsSsoOn(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<Keydomet<StrT, KdmtSize>>> provider;
-    getRandBenchArgs(state, SSO::Use, containerSize, opKeysNum, provider);
-    KeydometBench<KdmtSize, StrT>(state, Ops::Lookups, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<keydomet<StrT, KdmtSize>>> provider;
+    get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
+    keydomet_bench<KdmtSize, StrT>(state, ops::Lookups, container_size, op_key_num, *provider);
 }
 
-template<KeydometSize KdmtSize, class StrT>
+template<prefix_size KdmtSize, class StrT>
 void BM_KeydometLookupsSsoOff(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<Keydomet<StrT, KdmtSize>>> provider;
-    getRandBenchArgs(state, SSO::Exceed, containerSize, opKeysNum, provider);
-    KeydometBench<KdmtSize, StrT>(state, Ops::Lookups, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<keydomet<StrT, KdmtSize>>> provider;
+    get_rand_bench_args(state, sso::Exceed, container_size, op_key_num, provider);
+    keydomet_bench<KdmtSize, StrT>(state, ops::Lookups, container_size, op_key_num, *provider);
 }
 
 void BM_StringAllOpsSsoOn(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Use, containerSize, opKeysNum, provider);
-    StringBench<string>(state, Ops::Mix, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
+    string_bench<string>(state, ops::Mix, container_size, op_key_num, *provider);
 }
 
 void BM_StringAllOpsSsoOff(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Exceed, containerSize, opKeysNum, provider);
-    StringBench<string>(state, Ops::Mix, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Exceed, container_size, op_key_num, provider);
+    string_bench<string>(state, ops::Mix, container_size, op_key_num, *provider);
 }
 
 void BM_StringLookupsSsoOn(benchmark::State& state)
 {
-    cerr << "state.counters.size() = " << state.counters.size() << endl;//XXX
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Use, containerSize, opKeysNum, provider);
-    StringBench<string>(state, Ops::Lookups, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
+    string_bench<string>(state, ops::Lookups, container_size, op_key_num, *provider);
 }
 
 void BM_StringLookupsSsoOff(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Exceed, containerSize, opKeysNum, provider);
-    StringBench<string>(state, Ops::Lookups, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Exceed, container_size, op_key_num, provider);
+    string_bench<string>(state, ops::Lookups, container_size, op_key_num, *provider);
 }
 
 void BM_StringAllOpsDataset(benchmark::State& state)
 {
-    auto provider = getDatasetInput<string>(datasetFile);
-    StringBench<string>(state, Ops::Mix, ContainerSize{state.range(0)}, OpKeysNum{state.range(1)}, *provider);
+    auto provider = get_dataset_input<string>(datasetFile);
+    string_bench<string>(state, ops::Mix, container_size{state.range(0)}, op_keys_num{state.range(1)}, *provider);
 }
 
 void BM_StringLookupsDataset(benchmark::State& state)
 {
-    auto provider = getDatasetInput<string>(datasetFile);
-    StringBench<string>(state, Ops::Lookups, ContainerSize{state.range(0)}, OpKeysNum{state.range(1)}, *provider);
+    auto provider = get_dataset_input<string>(datasetFile);
+    string_bench<string>(state, ops::Lookups, container_size{state.range(0)}, op_keys_num{state.range(1)}, *provider);
 }
 
 void BM_StringViewLookups(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Use, containerSize, opKeysNum, provider);
-    StringBench<string_view>(state, Ops::Lookups, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
+    string_bench<string_view>(state, ops::Lookups, container_size, op_key_num, *provider);
 }
 
 void BM_StringViewAllOps(benchmark::State& state)
 {
-    ContainerSize containerSize;
-    OpKeysNum opKeysNum;
-    std::unique_ptr<InputProvider<string>> provider;
-    getRandBenchArgs(state, SSO::Use, containerSize, opKeysNum, provider);
-    StringBench<string_view>(state, Ops::Mix, containerSize, opKeysNum, *provider);
+    container_size container_size;
+    op_keys_num op_key_num;
+    std::unique_ptr<input_provider<string>> provider;
+    get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
+    string_bench<string_view>(state, ops::Mix, container_size, op_key_num, *provider);
 }
 
 void BM_StringViewLookupsDataset(benchmark::State& state)
 {
-    auto provider = getDatasetInput<string>(datasetFile);
-    StringBench<string_view>(state, Ops::Lookups, ContainerSize{state.range(0)}, OpKeysNum{state.range(1)}, *provider);
+    auto provider = get_dataset_input<string>(datasetFile);
+    string_bench<string_view>(state, ops::Lookups, container_size{state.range(0)}, op_keys_num{state.range(1)}, *provider);
 }
 
 void BM_StringViewAllOpsDataset(benchmark::State& state)
 {
-    auto provider = getDatasetInput<string>(datasetFile);
-    StringBench<string_view>(state, Ops::Mix, ContainerSize{state.range(0)}, OpKeysNum{state.range(1)}, *provider);
+    auto provider = get_dataset_input<string>(datasetFile);
+    string_bench<string_view>(state, ops::Mix, container_size{state.range(0)}, op_keys_num{state.range(1)}, *provider);
 }
 
-template<KeydometSize KdmtSize>
+template<prefix_size KdmtSize>
 void BM_KeydometCreation(benchmark::State& state)
 {
-    using KeydometType = typename KeydometStorage<KdmtSize>::type;
+    using keydomet_type = typename prefix_storage<KdmtSize>::type;
     size_t strLen = state.range(0);
     string source(strLen, 'e');
     for (auto _ : state)
     {
         benchmark::DoNotOptimize(
-                strToPrefix<KeydometType>(source)
+                str_to_prefix<keydomet_type>(source)
         );
     }
 }
 
 //constexpr size_t IterationsNum = 3'000;
-//constexpr size_t ContainerSize = 2'000;
+//constexpr size_t container_size = 2'000;
 //constexpr size_t OpsKeysNumber = 3'000;
 constexpr size_t IterationsNum = 300'000;
-constexpr size_t ContainerSize = 200'000;
+constexpr size_t container_size = 200'000;
 constexpr size_t OpsKeysNumber = 300'000;
 //constexpr size_t IterationsNum = 1'000'000;
-//constexpr size_t ContainerSize = 1'000'000;
+//constexpr size_t container_size = 1'000'000;
 //constexpr size_t OpsKeysNumber = 1'000'000;
 //constexpr size_t IterationsNum = 1'500'000;
-//constexpr size_t ContainerSize = 1'000'000;
+//constexpr size_t container_size = 1'000'000;
 //constexpr size_t OpsKeysNumber = 1'500'000;
 //constexpr size_t IterationsNum = 3'000'000;
-//constexpr size_t ContainerSize = 2'000'000;
+//constexpr size_t container_size = 2'000'000;
 //constexpr size_t OpsKeysNumber = 3'000'000;
 
 constexpr size_t Repeats = 5;
-constexpr KeydometSize BenchKdmtSize = KeydometSize::SIZE_32BIT; //TODO consider benchmarking all sizes
+constexpr prefix_size BenchKdmtSize = prefix_size::SIZE_32BIT; //TODO consider benchmarking all sizes
 
 #define BENCH_KeydometCreation  1
 #define BENCH_Warmup            1
@@ -360,7 +364,7 @@ constexpr KeydometSize BenchKdmtSize = KeydometSize::SIZE_32BIT; //TODO consider
 
 #define BenchConfig(reps) \
         -> Iterations(IterationsNum) \
-        -> Args({ContainerSize, OpsKeysNumber}) \
+        -> Args({container_size, OpsKeysNumber}) \
         -> Repetitions(reps) \
         -> ReportAggregatesOnly(true)
 
@@ -368,10 +372,10 @@ constexpr KeydometSize BenchKdmtSize = KeydometSize::SIZE_32BIT; //TODO consider
          -> Range(1, 128)
 
 #if BENCH_KeydometCreation
-BENCHMARK_TEMPLATE(BM_KeydometCreation, KeydometSize::SIZE_16BIT) KdmtCreationConf();
-BENCHMARK_TEMPLATE(BM_KeydometCreation, KeydometSize::SIZE_32BIT) KdmtCreationConf();
-BENCHMARK_TEMPLATE(BM_KeydometCreation, KeydometSize::SIZE_64BIT) KdmtCreationConf();
-BENCHMARK_TEMPLATE(BM_KeydometCreation, KeydometSize::SIZE_128BIT) KdmtCreationConf();
+BENCHMARK_TEMPLATE(BM_KeydometCreation, prefix_size::SIZE_16BIT) KdmtCreationConf();
+BENCHMARK_TEMPLATE(BM_KeydometCreation, prefix_size::SIZE_32BIT) KdmtCreationConf();
+BENCHMARK_TEMPLATE(BM_KeydometCreation, prefix_size::SIZE_64BIT) KdmtCreationConf();
+BENCHMARK_TEMPLATE(BM_KeydometCreation, prefix_size::SIZE_128BIT) KdmtCreationConf();
 #endif
 
 #if BENCH_Warmup
@@ -471,9 +475,10 @@ private:
 };
 
 void ConsoleReporter2::PrintRunData(const Run & run) {
-    if (run.benchmark_name.find("/repeats:") != run.benchmark_name.npos &&
-            run.benchmark_name.find("_mean") == run.benchmark_name.npos &&
-            run.benchmark_name.find("_median") == run.benchmark_name.npos)
+    string run_name = run.benchmark_name();
+    if (run_name.find("/repeats:") != run_name.npos &&
+            run_name.find("_mean") == run_name.npos &&
+            run_name.find("_median") == run_name.npos)
         return;
 
     ConsoleReporter::PrintRunData(run);

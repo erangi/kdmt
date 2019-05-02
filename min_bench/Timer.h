@@ -9,7 +9,7 @@
 #include <string>
 #include <chrono>
 
-enum class TimerStart
+enum class timer_start
 {
     Now
 };
@@ -41,7 +41,7 @@ class TimerGen
 public:
 
     TimerGen() = default;
-    explicit TimerGen(TimerStart) {
+    explicit TimerGen(timer_start) {
         start();
     }
 
@@ -58,14 +58,14 @@ public:
         return toStr(count, TypeWrapper<Resolution>());
     }
 
-    std::string elapsedStr() {
+    std::string elapsed_str() {
         size_t durCount = elapsed();
         return countToStr(durCount);
     }
 };
 
 using TimerSec = TimerGen<std::chrono::seconds>;
-using TimerMS = TimerGen<std::chrono::milliseconds>;
+using timer_ms = TimerGen<std::chrono::milliseconds>;
 using TimerUS = TimerGen<std::chrono::microseconds>;
 using TimerNS = TimerGen<std::chrono::nanoseconds>;
 
