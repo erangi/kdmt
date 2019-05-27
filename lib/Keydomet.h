@@ -171,7 +171,40 @@ namespace kdmt
     };
 
     template<class StrImp, prefix_size PrefixSize>
-    class keydomet
+    class prefix_str
+    {
+
+    public:
+
+        prefix_str(const StrImp& s) : prefix{s}, str{s}
+        {
+        }
+
+        prefix_str(std::remove_reference_t<StrImp>&& s) : prefix{static_cast<const StrImp&>(s)}, str{s}
+        {
+        }
+
+        template<typename... Args, class StrT = StrImp>
+        prefix_str(std::enable_if<std::is_reference<StrT>::value, Args...> args) : prefix{nullptr}, str(std::forward<Args>(args)...)
+        {
+            prefix = prefix_rep<PrefixSize>{str}; // must be done here due to initialization order
+        }
+
+        prefix_rep<PrefixSize>& get_prefix() { return prefix; }
+        const prefix_rep<PrefixSize>& get_prefix() const { return prefix; }
+
+        StrImp& get_str() { return str; }
+        const StrImp& get_str() const { return str; }
+
+    private:
+
+        // the order is important to make sure the prefix is placed in front of the string
+        prefix_rep<PrefixSize> prefix;
+        StrImp str;
+    };
+
+    template<class StrImp, prefix_size PrefixSize>
+    class keydomet : private prefix_str<StrImp, PrefixSize>
     {
 
     public:
@@ -179,18 +212,20 @@ namespace kdmt
         using str_imp = StrImp;
         static constexpr prefix_size size = PrefixSize;
 
-        keydomet(const str_imp& s) : prefix{s}, str{s}
+        keydomet(const str_imp& s) :
+                prefix_str<StrImp, PrefixSize>{s}
         {
         }
 
-        keydomet(std::remove_reference_t<str_imp>&& s) : prefix{static_cast<const str_imp&>(s)}, str{s}
+        keydomet(std::remove_reference_t<str_imp>&& s) :
+                prefix_str<StrImp, PrefixSize>{s}
         {
         }
 
         template<typename... Args, class StrT = str_imp>
-        keydomet(std::enable_if<std::is_reference<StrT>::value, Args...> args) : prefix{nullptr}, str(std::forward<Args>(args)...)
+        keydomet(std::enable_if<std::is_reference<StrT>::value, Args...> args) :
+                prefix_str<StrImp, PrefixSize>(std::forward<Args>(args)...)
         {
-            prefix = prefix_rep<PrefixSize>{str}; // must be done here due to initialization order
         }
 
         template<typename OtherImp, prefix_size OtherSize>
@@ -199,20 +234,20 @@ namespace kdmt
         template<typename Imp>
         int compare(const keydomet<Imp, PrefixSize>& other) const
         {
-            if (this->prefix != other.prefix)
+            if (this->get_prefix() != other.get_prefix())
             {
                 ++used_prefix();
-                return diff_as_one_or_minus_one(this->prefix, other.prefix);
+                return diff_as_one_or_minus_one(this->get_prefix(), other.get_prefix());
             }
             else
             {
-                if (this->prefix.string_shorter_than_prefix())
+                if (this->get_prefix().string_shorter_than_prefix())
                 {
                     ++used_prefix();
                     return 0;
                 }
                 ++used_string();
-                return strcmp(get_raw_str(str) + sizeof(PrefixSize), get_raw_str(other.str) + sizeof(PrefixSize));
+                return strcmp(get_raw_str(get_str()) + sizeof(PrefixSize), get_raw_str(other.get_str()) + sizeof(PrefixSize));
             }
         }
 
@@ -228,25 +263,20 @@ namespace kdmt
             return compare(other) == 0;
         }
 
-        const prefix_rep<PrefixSize>& getPrefix() const
+        const prefix_rep<PrefixSize>& get_prefix() const
         {
-            return prefix;
+            return prefix_str<StrImp, PrefixSize>::get_prefix();
         }
 
         const StrImp& get_str() const
         {
-            return str;
+            return prefix_str<StrImp, PrefixSize>::get_str();
         }
 
         static size_t& used_prefix() { static size_t counter = 0; return counter; }
         static size_t& used_string() { static size_t counter = 0; return counter; }
 
     private:
-
-        // using composition instead of inheritance (from str_imp) to make sure
-        // the keydomet is at the beginning of the object rather than at the end
-        prefix_rep<PrefixSize> prefix;
-        StrImp str;
 
         static int diff_as_one_or_minus_one(const prefix_rep<PrefixSize>& v1, const prefix_rep<PrefixSize>& v2)
         {

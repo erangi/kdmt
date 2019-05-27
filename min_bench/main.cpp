@@ -64,7 +64,7 @@ void print(const kdmt_set& s)
 {
     cout << "set has " << s.size() << " keys:" << endl;
     for (const keydomet_str& hk : s)
-        cout << hk << " --> " << hk.getPrefix().get_val() << endl;
+        cout << hk << " --> " << hk.get_prefix().get_val() << endl;
 }
 
 template<template<class, class...> class Container, class StrType, class... Args>
@@ -118,8 +118,8 @@ int main()
     cout << "generating " << lookups_num << " lookup strings of size " << str_len << "..." << endl;
     vector<string> lookups = get_input(lookups_num, str_len);
     cout << "=== testing sets ===" << endl;
-    // benchmark<kdmt_set, set<string>>(input, lookups);
-    // benchmark<kdmt_set, set<string>>(input, lookups);
-    // benchmark<kdmt_set, set<string>>(input, lookups);
+     benchmark<kdmt_set, set<string>>(input, lookups);
+     benchmark<kdmt_set, set<string>>(input, lookups);
+     benchmark<kdmt_set, set<string>>(input, lookups);
     return 0;
 }
