@@ -6,13 +6,14 @@
 #ifndef KEYDOMET_KEYDOMET_H
 #define KEYDOMET_KEYDOMET_H
 
-#include <iostream>
-#include <string>
+#include <cassert>
 #include <cstring>
-#include <utility>
-#include <type_traits>
+#include <iostream>
 #include <map>
 #include <set>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 //TODO optimize keydomet generation for SSO
 //TODO consider implications of storage type when char type is signed vs. unsigned
@@ -204,7 +205,71 @@ namespace kdmt
     };
 
     template<class StrImp, prefix_size PrefixSize>
-    class keydomet : private prefix_str<StrImp, PrefixSize>
+    class embedded_prefix_str
+    {
+
+    public:
+
+        embedded_prefix_str(const StrImp& s) : str{s}
+        {
+            build_prefix();
+        }
+
+        embedded_prefix_str(std::remove_reference_t<StrImp>&& s) : str{s}
+        {
+            build_prefix();
+        }
+
+        template<typename... Args, class StrT = StrImp>
+        embedded_prefix_str(std::enable_if<std::is_reference<StrT>::value, Args...> args) : str(std::forward<Args>(args)...)
+        {
+            build_prefix();
+        }
+
+        prefix_rep<PrefixSize>& get_prefix()
+        {
+            assert(can_embed_prefix());
+            return *reinterpret_cast<prefix_rep<PrefixSize>*>(reinterpret_cast<uint8_t*>(&str) + prefix_offset);
+        }
+        const prefix_rep<PrefixSize>& get_prefix() const
+        {
+            assert(can_embed_prefix());
+            return *reinterpret_cast<const prefix_rep<PrefixSize>*>(reinterpret_cast<const uint8_t*>(&str) + prefix_offset);
+        }
+
+        StrImp& get_str() { return str; }
+        const StrImp& get_str() const { return str; }
+
+    private:
+
+        void build_prefix()
+        {
+            if (can_embed_prefix())
+                get_prefix() = prefix_rep<PrefixSize>{str};
+        }
+
+        bool can_embed_prefix() const
+        {
+            const char* raw = get_raw_str(str);
+            const char* str_loc = reinterpret_cast<const char*>(&str);
+            // string buffer isn't within the string object - embedding prefix is safe
+            return str_loc > raw || raw > str_loc + sizeof(str);
+        }
+        static constexpr int prefix_offset =
+#if defined(_MSC_VER_)
+                8;
+#elif defined(__GNUC__)
+                24;
+#else // other comiiler's sso implementation doesn't allow prefix embedding - add a field
+                -sizeof(prefix_offset);
+        prefix_rep<PrefixSize> prefix;
+#endif
+        StrImp str;
+    };
+
+template<class StrImp, prefix_size PrefixSize, bool EmbedPrefix = false>
+class keydomet :
+        private std::conditional_t<EmbedPrefix, embedded_prefix_str<StrImp, PrefixSize>, prefix_str<StrImp, PrefixSize>>
     {
 
     public:
@@ -228,7 +293,7 @@ namespace kdmt
         {
         }
 
-        template<typename OtherImp, prefix_size OtherSize>
+        template<typename OtherImp, prefix_size OtherSize, bool OtherEmbedPrefix>
         friend class keydomet;
 
         template<typename Imp>
