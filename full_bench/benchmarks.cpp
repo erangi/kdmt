@@ -167,7 +167,10 @@ void BM_WarmupSsoOn(benchmark::State& state)
     std::unique_ptr<input_provider<string>> provider;
     get_rand_bench_args(state, sso::Use, container_size, op_key_num, provider);
     string_bench<string>(state, ops::Lookups, container_size, op_key_num, *provider);
-    cerr << "Types sizes: std::string = " << sizeof(string) << "B, std::string_view = " << sizeof(string_view) << "B" << endl;
+    cerr << "Types sizes:\n" <<
+            "\tstd::string = " << sizeof(string) << "B\n" <<
+            "\tstd::string_view = " << sizeof(string_view) << "B\n" <<
+            "\tkeydomet<string, 4B> = " << sizeof(keydomet<string, prefix_size::SIZE_32BIT>) << "B" << endl;
 }
 
 void BM_WarmupSsoOff(benchmark::State& state)

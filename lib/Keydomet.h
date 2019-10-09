@@ -196,6 +196,7 @@ namespace kdmt
 
         StrImp& get_str() { return str; }
         const StrImp& get_str() const { return str; }
+        static constexpr bool prefix_available() { return true; }
 
     private:
 
@@ -229,8 +230,10 @@ namespace kdmt
         prefix_rep<PrefixSize>& get_prefix()
         {
             assert(can_embed_prefix());
-            return *reinterpret_cast<prefix_rep<PrefixSize>*>(reinterpret_cast<uint8_t*>(&str) + prefix_offset);
+            return *reinterpret_cast<prefix_rep<PrefixSize>*>(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&str) + prefix_offset));
+//            return const_cast<prefix_rep<PrefixSize>&>(const_cast<const embedded_prefix_str<StrImp, PrefixSize>*>(this)->get_prefix());
         }
+
         const prefix_rep<PrefixSize>& get_prefix() const
         {
             assert(can_embed_prefix());
@@ -239,13 +242,18 @@ namespace kdmt
 
         StrImp& get_str() { return str; }
         const StrImp& get_str() const { return str; }
+        bool prefix_available() const { return can_embed_prefix(); }
 
     private:
 
         void build_prefix()
         {
             if (can_embed_prefix())
+            {
                 get_prefix() = prefix_rep<PrefixSize>{str};
+                if (get_prefix().get_val() == 0)
+                    std::cerr << "errr..." << std::endl; //XXX
+            }
         }
 
         bool can_embed_prefix() const
@@ -267,23 +275,32 @@ namespace kdmt
         StrImp str;
     };
 
-template<class StrImp, prefix_size PrefixSize, bool EmbedPrefix = false>
+//template<typename StrT>
+//struct is_sso_type
+//{
+//    static constexpr bool v = std::is_same<StrT, std::string>::value;
+//};
+
+template<typename StrT>
+constexpr bool is_sso_type = std::is_same<StrT, std::string>::value;
+
+template<class StrImp, prefix_size PrefixSize, bool EmbedPrefix = is_sso_type<StrImp>>
 class keydomet :
         private std::conditional_t<EmbedPrefix, embedded_prefix_str<StrImp, PrefixSize>, prefix_str<StrImp, PrefixSize>>
     {
+
+        using base = std::conditional_t<EmbedPrefix, embedded_prefix_str<StrImp, PrefixSize>, prefix_str<StrImp, PrefixSize>>;
 
     public:
 
         using str_imp = StrImp;
         static constexpr prefix_size size = PrefixSize;
 
-        keydomet(const str_imp& s) :
-                prefix_str<StrImp, PrefixSize>{s}
+        keydomet(const str_imp& s) : base{s}
         {
         }
 
-        keydomet(std::remove_reference_t<str_imp>&& s) :
-                prefix_str<StrImp, PrefixSize>{s}
+        keydomet(std::remove_reference_t<str_imp>&& s) : base{s}
         {
         }
 
@@ -299,7 +316,16 @@ class keydomet :
         template<typename Imp>
         int compare(const keydomet<Imp, PrefixSize>& other) const
         {
+            if (!base::prefix_available() || !other.prefix_available())
+                return strcmp(get_raw_str(get_str()), get_raw_str(other.get_str()));
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
             if (this->get_prefix() != other.get_prefix())
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
             {
                 ++used_prefix();
                 return diff_as_one_or_minus_one(this->get_prefix(), other.get_prefix());
@@ -319,6 +345,12 @@ class keydomet :
         template<typename Imp>
         bool operator<(const keydomet<Imp, PrefixSize>& other) const
         {
+            if((compare(other) < 0) != (get_str() < other.get_str())) //XXX
+            {
+                std::cerr << "This: '" << get_str() << "', keydomet: " << this->get_prefix().get_val() << std::endl;
+                std::cerr << "That: '" << other.get_str() << "', keydomet: " << other.get_prefix().get_val() << std::endl;
+                std::cerr << std::endl;
+            }
             return compare(other) < 0;
         }
 
@@ -330,12 +362,12 @@ class keydomet :
 
         const prefix_rep<PrefixSize>& get_prefix() const
         {
-            return prefix_str<StrImp, PrefixSize>::get_prefix();
+            return base::get_prefix();
         }
 
         const StrImp& get_str() const
         {
-            return prefix_str<StrImp, PrefixSize>::get_str();
+            return base::get_str();
         }
 
         static size_t& used_prefix() { static size_t counter = 0; return counter; }
@@ -347,7 +379,14 @@ class keydomet :
         {
             // return -1 if v1 < v2 and 1 otherwise
             // this is done without conditional branches and without risking wrap-around
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
             return ((int)!(v1 < v2) << 1) - 1;
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
         }
 
     };

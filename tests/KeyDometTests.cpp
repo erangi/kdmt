@@ -525,6 +525,12 @@ private:
     string str;
 };
 
+ostream& operator<<(ostream& out, const my_string& str)
+{
+    out << get_raw_str(str);
+    return out;
+}
+
 TEST_CASE("using keydomet with non-standard strings", "[custom strings]")
 {
     using kdmt_my_str = keydomet<my_string, prefix_size::SIZE_16BIT>;
@@ -539,4 +545,19 @@ TEST_CASE("using keydomet with non-standard strings", "[custom strings]")
     REQUIRE(iter->get_str() == str2);
     ++iter;
     REQUIRE(iter->get_str() == str3);
+}
+
+TEST_CASE("store in str when sso not used", "[sso optimization]")
+{
+    using kdmt_str = keydomet<string, prefix_size::SIZE_32BIT>;
+    set<kdmt_str, less<>> container;
+    container.insert(string("Dk--------"));
+    container.insert(string("Db-------"));
+    container.insert(string("Qw--------"));
+    auto find_key1 = make_find_key(container, string("Dk--------"));
+    REQUIRE(container.find(find_key1) != container.end());
+    auto find_key2 = make_find_key(container, string("Db--------"));
+    REQUIRE(container.find(find_key2) != container.end());
+    auto find_key3 = make_find_key(container, string("Qw--------"));
+    REQUIRE(container.find(find_key3) != container.end());
 }
