@@ -78,7 +78,7 @@ bool lookup(Container<StrType, Args...>& s, const string& key)
 template<template<class, class...> class Container, class... Args>
 bool lookup(Container<keydomet_str, Args...>& s, const string& key)
 {
-    auto hkey = make_find_key(s, key);
+    auto hkey = make_key_view(s, key);
     auto iter = s.find(hkey);
     return iter != s.end();
 }

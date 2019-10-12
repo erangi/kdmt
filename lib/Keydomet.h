@@ -221,6 +221,16 @@ namespace kdmt
             build_prefix();
         }
 
+        embedded_prefix_str(const embedded_prefix_str& other) : str{other.str}
+        {
+            build_prefix();
+        }
+
+        embedded_prefix_str(embedded_prefix_str&& other) : str{std::move(other.str)}
+        {
+            build_prefix();
+        }
+
         template<typename... Args, class StrT = StrImp>
         embedded_prefix_str(std::enable_if<std::is_reference<StrT>::value, Args...> args) : str(std::forward<Args>(args)...)
         {
@@ -231,7 +241,6 @@ namespace kdmt
         {
             assert(can_embed_prefix());
             return *reinterpret_cast<prefix_rep<PrefixSize>*>(const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&str) + prefix_offset));
-//            return const_cast<prefix_rep<PrefixSize>&>(const_cast<const embedded_prefix_str<StrImp, PrefixSize>*>(this)->get_prefix());
         }
 
         const prefix_rep<PrefixSize>& get_prefix() const
@@ -249,11 +258,7 @@ namespace kdmt
         void build_prefix()
         {
             if (can_embed_prefix())
-            {
                 get_prefix() = prefix_rep<PrefixSize>{str};
-                if (get_prefix().get_val() == 0)
-                    std::cerr << "errr..." << std::endl; //XXX
-            }
         }
 
         bool can_embed_prefix() const
@@ -275,14 +280,9 @@ namespace kdmt
         StrImp str;
     };
 
-//template<typename StrT>
-//struct is_sso_type
-//{
-//    static constexpr bool v = std::is_same<StrT, std::string>::value;
-//};
-
 template<typename StrT>
-constexpr bool is_sso_type = std::is_same<StrT, std::string>::value;
+constexpr bool is_sso_type =
+        std::is_same<std::string, std::remove_cv_t<std::remove_reference_t<StrT>>>::value;
 
 template<class StrImp, prefix_size PrefixSize, bool EmbedPrefix = is_sso_type<StrImp>>
 class keydomet :
@@ -314,7 +314,7 @@ class keydomet :
         friend class keydomet;
 
         template<typename Imp>
-        int compare(const keydomet<Imp, PrefixSize>& other) const
+        int compare(const keydomet<Imp, PrefixSize, EmbedPrefix>& other) const
         {
             if (!base::prefix_available() || !other.prefix_available())
                 return strcmp(get_raw_str(get_str()), get_raw_str(other.get_str()));
@@ -343,19 +343,13 @@ class keydomet :
         }
 
         template<typename Imp>
-        bool operator<(const keydomet<Imp, PrefixSize>& other) const
+        bool operator<(const keydomet<Imp, PrefixSize, EmbedPrefix>& other) const
         {
-            if((compare(other) < 0) != (get_str() < other.get_str())) //XXX
-            {
-                std::cerr << "This: '" << get_str() << "', keydomet: " << this->get_prefix().get_val() << std::endl;
-                std::cerr << "That: '" << other.get_str() << "', keydomet: " << other.get_prefix().get_val() << std::endl;
-                std::cerr << std::endl;
-            }
             return compare(other) < 0;
         }
 
         template<typename Imp>
-        bool operator==(const keydomet<Imp, PrefixSize>& other) const
+        bool operator==(const keydomet<Imp, PrefixSize, EmbedPrefix>& other) const
         {
             return compare(other) == 0;
         }
@@ -452,17 +446,19 @@ class keydomet :
         void verify_container_uses_transparent_comperator<std::true_type>() {}
     }
 
-    template<class StrT, template<class, class...> class Container, prefix_size Size, class... Args>
-    inline auto make_find_key(const Container<keydomet<StrT, Size>, Args...>& s, const StrT& key)
+    template<class StrT, template<class, class...> class Container, prefix_size Size, bool SsoOpt, class... Args>
+    inline auto make_key_view(const Container<keydomet<StrT, Size, SsoOpt>, Args...>& s, const StrT& key)
     {
         // associative containers (maps, sets) can use a transparent comparator. such a comperator can
         // compare the internal key type with other types (as long as there's an appropriate operator).
         // this allows such containers to hold keydomet<string> but search using keydomet<const string&>, saving the allocation.
-        // *** Note: to make a container associative, define it with the less<> comparator:
-        // *** using keydomet_set = std::set<kdmt_str, std::less<>>;
+        // Note 1: to make a container associative, define it with the less<> comparator:
+        //         using keydomet_set = std::set<kdmt_str, std::less<>>;
+        // Note 2: the view holds a reference to key. if key is a temporary that goes out of scope,
+        //         the key view will hold a dangling reference and must not be used.
         using keydomet_str_type = std::conditional_t<decltype(imp::is_transparent(s))::value,
-                keydomet<const StrT&, Size>,
-                keydomet<StrT, Size>
+                keydomet<const StrT&, Size, SsoOpt>,
+                keydomet<StrT, Size, SsoOpt>
         >;
         imp::verify_container_uses_transparent_comperator<decltype(imp::is_transparent(s))>();
         return keydomet_str_type{key};

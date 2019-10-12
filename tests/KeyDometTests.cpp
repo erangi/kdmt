@@ -50,8 +50,8 @@ TEST_CASE("str_to_prefix, 4B, const char*", "[str_to_prefix]")
 {
     const char* str = "0001";
     auto prefix = str_to_prefix<prefix4B::type>(str);
-    REQUIRE((char)(prefix & 0xFF) == '1');
     REQUIRE((char)(prefix >> (8 * 3)) == '0');
+    REQUIRE((char)(prefix & 0xFF) == '1');
 }
 
 TEST_CASE("str_to_prefix, 8B, const char*", "[str_to_prefix]")
@@ -386,7 +386,7 @@ TEST_CASE("associative containers take a const str&", "[make_find_key]")
     using kdmt_str = keydomet<string, prefix_size::SIZE_32BIT>;
     set<kdmt_str, less<>> s;
     string lookupStr{"dummy"};
-    using find_key_type = decltype(make_find_key(s, lookupStr))::str_imp;
+    using find_key_type = decltype(make_key_view(s, lookupStr))::str_imp;
     constexpr bool is_const_ref = is_same<find_key_type, const string&>::value;
     CAPTURE(typeid(find_key_type).name());
     REQUIRE(is_const_ref == true);
@@ -397,7 +397,7 @@ TEST_CASE("associative container key requires no allocation", "[make_find_key]")
     using kdmt_str = keydomet<string, prefix_size::SIZE_32BIT>;
     set<kdmt_str, less<>> s;
     string org{"dummy"};
-    auto fk = make_find_key(s, org);
+    auto fk = make_key_view(s, org);
     const string& ref = fk.get_str();
     REQUIRE(&ref == &org);
 }
@@ -551,13 +551,57 @@ TEST_CASE("store in str when sso not used", "[sso optimization]")
 {
     using kdmt_str = keydomet<string, prefix_size::SIZE_32BIT>;
     set<kdmt_str, less<>> container;
-    container.insert(string("Dk--------"));
-    container.insert(string("Db-------"));
-    container.insert(string("Qw--------"));
-    auto find_key1 = make_find_key(container, string("Dk--------"));
-    REQUIRE(container.find(find_key1) != container.end());
-    auto find_key2 = make_find_key(container, string("Db--------"));
-    REQUIRE(container.find(find_key2) != container.end());
-    auto find_key3 = make_find_key(container, string("Qw--------"));
-    REQUIRE(container.find(find_key3) != container.end());
+    container.insert(string(65, '2'));
+    container.insert(string(65, '1'));
+    container.insert(string(65, '3'));
+    string s1(65, '1'), s2(65, '2'), s3(65, '3');
+    auto find_key1 = make_key_view(container, s1);
+    auto iter = container.find(find_key1);
+    REQUIRE(iter != container.end());
+    auto find_key2 = make_key_view(container, s2);
+    iter = container.find(find_key2);
+    REQUIRE(iter != container.end());
+    auto find_key3 = make_key_view(container, s3);
+    iter = container.find(find_key3);
+    REQUIRE(iter != container.end());
 }
+
+TEST_CASE("move embedded keydomet", "[sso optimization]")
+{
+    using kdmt_str = keydomet<string, prefix_size::SIZE_16BIT>;
+    string suffix(65, '0');
+    kdmt_str ks1("11" + suffix);
+    kdmt_str ks2m("12" + suffix);
+    kdmt_str ks2 = move(ks2m);
+    kdmt_str ks3("13" + suffix);
+
+    REQUIRE(ks1 < ks2);
+    REQUIRE(ks2 < ks3);
+}
+
+TEST_CASE("copy - short string", "[sso optimization]")
+{
+    using kdmt_str = keydomet<std::string, prefix_size::SIZE_16BIT>;
+    kdmt_str s1{"1"}, s2{"2"}, s3{"3"};
+    kdmt_str c1{s1}, c2{s2}, c3{s3};
+
+    CHECK(s1 < s2);
+    CHECK(s2 < s3);
+
+    REQUIRE(c1 < c2);
+    REQUIRE(c2 < c3);
+}
+
+TEST_CASE("copy - long string", "[sso optimization]")
+{
+    using kdmt_str = keydomet<std::string, prefix_size::SIZE_16BIT>;
+    kdmt_str s1{string{'1', 64}}, s2{string{'2', 64}}, s3{string{'3', 64}};
+    kdmt_str c1{s1}, c2{s2}, c3{s3};
+
+    CHECK(s1 < s2);
+    CHECK(s2 < s3);
+
+    REQUIRE(c1 < c2);
+    REQUIRE(c2 < c3);
+}
+
